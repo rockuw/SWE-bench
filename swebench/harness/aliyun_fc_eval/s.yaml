@@ -1,0 +1,41 @@
+# Serverless Devs configuration for SWE-bench evaluation on Aliyun FC 3.0
+# Usage: s deploy
+
+edition: 3.0.0
+name: swebench-evaluation
+access: "default"
+
+vars:
+  region: "cn-shanghai"
+  acr_image: "registry.cn-shanghai.aliyuncs.com/muwu/sweb.eval.x86_64.sympy_1776_sympy-20590:fc-go"
+
+resources:
+  swebench-eval:
+    component: fc3
+    props:
+      region: ${vars.region}
+      functionName: "swebench-eval"
+      description: "SWE-bench evaluation using custom container"
+      runtime: "custom-container"
+      memorySize: 16384
+      timeout: 1800
+      caPort: 9000
+      customContainerConfig:
+        image: ${vars.acr_image}
+        command:
+          - /fc_server
+        args: ""
+      environmentVariables:
+        PYTHONPATH: /testbed
+      instanceConcurrency: 1
+      instanceType: e1
+      triggers:
+        - triggerName: httpTrigger
+          triggerType: http
+          triggerConfig:
+            authType: anonymous
+            methods:
+              - GET
+              - POST
+            path: /*
+            qualifier: LATEST

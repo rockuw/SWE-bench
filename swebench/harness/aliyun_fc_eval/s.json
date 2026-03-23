@@ -1,0 +1,40 @@
+{
+  "edition": "3.0",
+  "name": "swebench-evaluation",
+  "access": "default",
+  "services": {
+    "swebench-eval": {
+      "component": "fc3",
+      "actions": {
+        "pre-deploy": [
+          {
+            "plugin": "system",
+            "params": {
+              "command": "pull_image",
+              "args": "--image swebench/swebench.eval.x86_64.sympy:py3.10 --target registry.cn-shanghai.aliyuncs.com/swebench/swebench-eval:latest"
+            }
+          }
+        ]
+      },
+      "properties": {
+        "region": "cn-shanghai",
+        "functionName": "swebench-eval",
+        "runtime": "custom-container",
+        "memorySize": 16384,
+        "timeout": 1800,
+        "caPort": 9000,
+        "customContainerConfig": {
+          "image": "registry.cn-shanghai.aliyuncs.com/swebench/swebench-eval:latest",
+          "command": ["python", "/entry_point.py"],
+          "args": ""
+        },
+        "environmentVariables": [
+          {"key": "PYTHONPATH", "value": "/testbed"},
+          {"key": "FC_FUNCTION_PORT", "value": "9000"}
+        ],
+        "instanceConcurrency": 1,
+        "instanceType": "e1"
+      }
+    }
+  }
+}
