@@ -8,19 +8,36 @@ This document outlines a plan to replace local Docker-based evaluation with Aliy
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    SWE-bench Evaluation Flow                        │
+│              SWE-bench Evaluation on Aliyun FC                      │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  ┌──────────────┐    ┌──────────────────┐    ┌────────────────┐  │
-│  │   Host       │    │   Aliyun FC       │    │   Output       │  │
-│  │  (Python)    │───▶│   Custom         │───▶│   (OSS/Local)  │  │
-│  │              │    │   Container       │    │                │  │
-│  │ - Load data  │    │                  │    │ - Test output  │  │
-│  │ - Serialize  │    │ - Apply patch    │    │ - Report.json  │  │
-│  │ - Invoke FC  │    │ - Run eval       │    │ - Logs         │  │
-│  │ - Collect    │    │ - Return results  │    │                │  │
-│  └──────────────┘    └──────────────────┘    └────────────────┘  │
-│                                                                     │
+│  ┌─────────────────────┐    gRPC (bi-directional stream)          │
+│  │   Host (Python)    │◀─────────────────────────────────────────▶│
+│  │                     │    ┌────────────────────────────────────┐  │
+│  │ - Load data        │    │   Aliyun FC Custom Container      │  │
+│  │ - Serialize patch  │    │                                    │  │
+│  │ - Run eval via gRPC│    │  ┌─────────────────────────────┐  │  │
+│  │ - Collect results  │    │  │   Go gRPC Server           │  │  │
+│  └─────────────────────┘    │  │   (fc_server on port 8089) │  │  │
+│                             │  │                             │  │  │
+│                             │  │  - ContainerSession (stream)│  │  │
+│                             │  │  - HealthCheck              │  │  │
+│                             │  │  - exec, write_file, read   │  │  │
+│                             │  └─────────────────────────────┘  │  │
+│                             │                                    │  │
+│                             │  ┌─────────────────────────────┐  │  │
+│                             │  │   SWE-bench Image           │  │  │
+│                             │  │   (/testbed with repo)      │  │  │
+│                             │  └─────────────────────────────┘  │  │
+│                             └────────────────────────────────────┘  │
+│                                    │                                │
+│                                    ▼                                │
+│                             ┌────────────────┐                      │
+│                             │   Output       │                      │
+│                             │ - Test output  │                      │
+│                             │ - Report.json  │                      │
+│                             │ - Logs         │                      │
+│                             └────────────────┘                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -30,26 +47,64 @@ This document outlines a plan to replace local Docker-based evaluation with Aliy
 
 **Location**: `swebench/harness/aliyun_fc_eval/aliyun_fc_runtime.py`
 
-A class that manages the Aliyun FC function invocation, similar to `ModalSandboxRuntime`:
+A Python class that manages the Aliyun FC function invocation via gRPC bi-directional streaming. It provides a Docker SDK-like interface:
 
 ```python
 class AliyunFCRuntime:
     """Runtime for running instances in Aliyun FC custom container."""
 
-    def __init__(self, test_spec, fc_endpoint: str):
-        pass
+    def __init__(self, test_spec, fc_endpoint: str, timeout: int = 1800):
+        """
+        Initialize the runtime.
+
+        Args:
+            test_spec: TestSpec instance
+            fc_endpoint: FC endpoint (e.g., swebench-eval-xxx.cn-shanghai.fcapp.run:8089)
+            timeout: Default timeout for operations in seconds
+        """
+
+    def connect(self):
+        """Connect to the FC container via gRPC."""
+
+    def health_check(self) -> bool:
+        """Check if the container is healthy."""
 
     def write_file(self, path: str, content: str, is_binary: bool = False):
-        """Write file to container via gRPC."""
+        """Write file to container via gRPC bi-directional stream."""
 
     def exec(self, command: str, workdir: str = "/testbed") -> tuple[str, int]:
-        """Execute command in container via gRPC."""
+        """Execute command in container via gRPC bi-directional stream."""
+
+    def read_file(self, path: str, offset: int = 0, limit: int = 0) -> bytes:
+        """Read file from container via gRPC stream."""
 
     def close(self):
         """Close gRPC connection."""
 ```
 
-### 2. Docker Image for Custom Container
+### 2. Go gRPC Server (`fc_server`)
+
+**Location**: `swebench/harness/aliyun_fc_eval/main.go`
+
+A Go-based gRPC server that runs inside the FC container, providing bi-directional streaming for stateful operations:
+
+- **Port**: 8089
+- **Protocol**: gRPC with HTTP/2
+- **Transport**: TLS (SSL credentials)
+
+```protobuf
+service ContainerService {
+    rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+    rpc ContainerSession(stream SessionRequest) returns (stream SessionResponse);
+}
+```
+
+The `ContainerSession` method uses bi-directional streaming:
+- Client sends `SessionRequest` (exec, write_file, read_file)
+- Server streams `SessionResponse` (output, return_code, content)
+- Single persistent connection for all operations (stateful)
+
+### 3. Docker Image for Custom Container
 
 **Location**: `swebench/harness/aliyun_fc_eval/Dockerfile`
 
@@ -61,9 +116,18 @@ COPY fc_server /fc_server
 RUN chmod +x /fc_server
 ```
 
-### 3. Main Orchestration
+### 4. Main Orchestration
 
 **Location**: `swebench/harness/aliyun_fc_eval/run_evaluation_aliyun.py`
+
+Coordinates the evaluation workflow:
+1. Connect to FC via gRPC
+2. Reset git state (clean container)
+3. Write patch file via gRPC
+4. Apply patch via gRPC exec
+5. Write and execute eval script via gRPC
+6. Collect test output
+7. Close gRPC connection
 
 ## Implementation Steps
 
@@ -257,25 +321,40 @@ edition: 3.0.0
 name: swebench-evaluation
 access: "default"
 
+vars:
+  region: "cn-shanghai"
+  acr_image: "registry.cn-shanghai.aliyuncs.com/muwu/swebench-eval:fc-go"
+
 resources:
   swebench-eval:
     component: fc3
     props:
-      region: cn-shanghai
-      functionName: swebench-eval
-      runtime: custom-container
+      region: ${vars.region}
+      functionName: "swebench-eval"
+      description: "SWE-bench evaluation using custom container"
+      runtime: "custom-container"
       memorySize: 16384
       timeout: 1800
       customContainerConfig:
         port: 8089
-        image: registry.cn-shanghai.aliyuncs.com/muwu/swebench-eval:latest
-        command: ["/fc_server"]
+        image: ${vars.acr_image}
+        command:
+          - /fc_server
+        args: ""
+      environmentVariables:
+        PYTHONPATH: /testbed
       instanceConcurrency: 1
       instanceType: e1
-  fc-domain:
-    component: fc3-domain
-    props:
-      domainName: auto
+      triggers:
+        - triggerName: httpTrigger
+          triggerType: http
+          triggerConfig:
+            authType: anonymous
+            methods:
+              - GET
+              - POST
+            path: /*
+            qualifier: LATEST
 ```
 
 ## Challenges and Solutions
