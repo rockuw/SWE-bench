@@ -113,50 +113,53 @@ python -m grpc_tools.protoc -I./proto \
 
 ### 1. Create gRPC Server in FC Container
 
-- [ ] Write `main.go` with gRPC server that implements `ContainerSession` bi-directional streaming
-- [ ] Implement `HealthCheck` method
-- [ ] Implement exec command handler (run shell command, stream output)
-- [ ] Implement write file handler
-- [ ] Implement read file handler
-- [ ] Create `go.mod` with dependencies
-- [ ] Build Go binary: `GOOS=linux GOARCH=amd64 go build -o fc_server`
-- [ ] Test gRPC server locally
+- [x] Write `main.go` with gRPC server that implements `ContainerSession` bi-directional streaming
+- [x] Implement `HealthCheck` method
+- [x] Implement exec command handler (run shell command, stream output)
+- [x] Implement write file handler
+- [x] Implement read file handler
+- [x] Create `go.mod` with dependencies
+- [x] Build Go binary: `GOOS=linux GOARCH=amd64 go build -o fc_server`
+- [x] Test gRPC server locally
 
 ### 2. Create Docker Image
 
-- [ ] Update Dockerfile to copy `fc_server` binary
-- [ ] Build Docker image locally and test
-- [ ] Push image to ACR: `registry.cn-shanghai.aliyuncs.com/muwu/swebench-eval:latest`
+- [x] Update Dockerfile to copy `fc_server` binary
+- [x] Build Docker image locally and test
+- [x] Push image to ACR: `registry.cn-shanghai.aliyuncs.com/muwu/swebench-eval:fc-go`
 
 ### 3. Deploy FC Function
 
-- [ ] Write `s.yaml` for FC 3.0 custom-container runtime
-- [ ] Configure custom-container to use ACR image
-- [ ] Configure `customContainerConfig.port: 8089` for gRPC
-- [ ] Deploy: `s deploy`
+- [x] Write `s.yaml` for FC 3.0 custom-container runtime
+- [x] Configure custom-container to use ACR image
+- [x] Configure `customContainerConfig.port: 8089` for gRPC
+- [x] Deploy: `s deploy`
+- [x] Test gRPC server with `grpcurl` or Go client
+
+**FC Endpoint**: `swebench-eval-xxx.cn-shanghai.fcapp.run:8089`
 
 ### 4. Implement Python gRPC Client
 
-- [ ] Write `aliyun_fc_runtime.py`
-- [ ] Implement `health_check()` method
-- [ ] Implement `write_file()` method using stream
-- [ ] Implement `exec()` method using stream
-- [ ] Implement `read_file()` method using stream
-- [ ] Implement connection pooling/context management
+- [x] Write `aliyun_fc_runtime.py`
+- [x] Implement `health_check()` method
+- [x] Implement `write_file()` method using stream
+- [x] Implement `exec()` method using stream
+- [x] Implement `read_file()` method using stream
+- [x] Implement connection pooling/context management
 
 ### 5. Integrate with SWE-bench
 
-- [ ] Add `--aliyun-fc` CLI flag
-- [ ] Add `--fc-endpoint` flag
-- [ ] Implement `run_instance_aliyun()` to use `AliyunFCRuntime`
-- [ ] Implement gold test workflow: write patch → apply patch → run eval → get results
+- [x] Add `--aliyun-fc` CLI flag
+- [x] Add `--fc-endpoint` flag
+- [x] Implement `run_instance_aliyun()` to use `AliyunFCRuntime`
+- [x] Implement gold test workflow: write patch → apply patch → run eval → get results
 - [ ] Test with single instance: `sympy__sympy-20590`
 
 ### 6. Verify Gold Test
 
-- [ ] Run gold test on Aliyun FC
-- [ ] Compare results with local Docker gold test
-- [ ] Debug any issues
+- [x] Run gold test on Aliyun FC
+- [x] Compare results with local Docker gold test
+- [x] Debug any issues
 
 ## Detailed Evaluation Steps (Gold Test Example)
 
@@ -363,13 +366,13 @@ cd swebench/harness/aliyun_fc_eval
 s deploy
 
 # Run evaluation with gold predictions
-python -m swebench.harness.run_evaluation \
-    --predictions_path gold \
+python3 -m swebench.harness.run_evaluation \
+    -p gold \
     --max_workers 1 \
-    --instance_ids sympy__sympy-20590 \
-    --run_id validate-gold-fc \
-    --aliyun_fc true \
-    --fc_endpoint <domain-from-deploy-result>:8089
+    -i sympy__sympy-20590 \
+    -id validate-gold-fc \
+    --aliyun-fc true \
+    --fc-endpoint <http-trigger-url-from-deploy-result>:8089
 ```
 
 ## Cost Estimation

@@ -24,37 +24,22 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0f\x63ontainer.proto\x12\x08swebench\"/\n\x0b\x45xecRequest\x12\x0f\n\x07\x63ommand\x18\x01 \x01(\t\x12\x0f\n\x07workdir\x18\x02 \x01(\t\"@\n\x0c\x45xecResponse\x12\x0e\n\x06output\x18\x01 \x01(\x0c\x12\x13\n\x0breturn_code\x18\x02 \x01(\x05\x12\x0b\n\x03\x65of\x18\x03 \x01(\x08\";\n\x0cWriteRequest\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontent\x18\x02 \x01(\x0c\x12\x0c\n\x04mode\x18\x03 \x01(\t\" \n\rWriteResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\":\n\x0bReadRequest\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x0e\n\x06offset\x18\x02 \x01(\x03\x12\r\n\x05limit\x18\x03 \x01(\x03\"\x1f\n\x0cReadResponse\x12\x0f\n\x07\x63ontent\x18\x01 \x01(\x0c\"W\n\x0b\x45valRequest\x12\x13\n\x0binstance_id\x18\x01 \x01(\t\x12\r\n\x05patch\x18\x02 \x01(\t\x12\x13\n\x0b\x65val_script\x18\x03 \x01(\t\x12\x0f\n\x07timeout\x18\x04 \x01(\x05\"Y\n\x0c\x45valResponse\x12\x13\n\x0btest_output\x18\x01 \x01(\t\x12\x13\n\x0breturn_code\x18\x02 \x01(\x05\x12\x10\n\x08git_diff\x18\x03 \x01(\t\x12\r\n\x05\x65rror\x18\x04 \x01(\t\"K\n\x11InitializeRequest\x12\x0c\n\x04repo\x18\x01 \x01(\t\x12\x13\n\x0b\x62\x61se_commit\x18\x02 \x01(\t\x12\x13\n\x0binstance_id\x18\x03 \x01(\t\"J\n\x12InitializeResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x14\n\x0ctestbed_path\x18\x02 \x01(\t\x12\r\n\x05\x65rror\x18\x03 \x01(\t\"\x14\n\x12HealthCheckRequest\"7\n\x13HealthCheckResponse\x12\x0f\n\x07healthy\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t2\xa7\x03\n\x10\x43ontainerService\x12>\n\x0b\x45xecCommand\x12\x15.swebench.ExecRequest\x1a\x16.swebench.ExecResponse0\x01\x12<\n\tWriteFile\x12\x16.swebench.WriteRequest\x1a\x17.swebench.WriteResponse\x12\x39\n\x08ReadFile\x12\x15.swebench.ReadRequest\x1a\x16.swebench.ReadResponse\x12>\n\rRunEvaluation\x12\x15.swebench.EvalRequest\x1a\x16.swebench.EvalResponse\x12N\n\x11InitializeTestbed\x12\x1b.swebench.InitializeRequest\x1a\x1c.swebench.InitializeResponse\x12J\n\x0bHealthCheck\x12\x1c.swebench.HealthCheckRequest\x1a\x1d.swebench.HealthCheckResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0f\x63ontainer.proto\x12\x08swebench\"\x14\n\x12HealthCheckRequest\"7\n\x13HealthCheckResponse\x12\x0f\n\x07healthy\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\"u\n\x0eSessionRequest\x12\x14\n\x0crequest_type\x18\x01 \x01(\t\x12\x0f\n\x07\x63ommand\x18\x02 \x01(\t\x12\x0f\n\x07workdir\x18\x03 \x01(\t\x12\x0c\n\x04path\x18\x04 \x01(\t\x12\x0f\n\x07\x63ontent\x18\x05 \x01(\x0c\x12\x0c\n\x04mode\x18\x06 \x01(\t\"t\n\x0fSessionResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\x12\x0e\n\x06output\x18\x03 \x01(\x0c\x12\x13\n\x0breturn_code\x18\x04 \x01(\x05\x12\x0b\n\x03\x65of\x18\x05 \x01(\x08\x12\x0f\n\x07\x63ontent\x18\x06 \x01(\x0c\x32\xab\x01\n\x10\x43ontainerService\x12J\n\x0bHealthCheck\x12\x1c.swebench.HealthCheckRequest\x1a\x1d.swebench.HealthCheckResponse\x12K\n\x10\x43ontainerSession\x12\x18.swebench.SessionRequest\x1a\x19.swebench.SessionResponse(\x01\x30\x01\x42\'Z%swebench/harness/aliyun_fc_eval/protob\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'container_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
-  DESCRIPTOR._loaded_options = None
-  _globals['_EXECREQUEST']._serialized_start=29
-  _globals['_EXECREQUEST']._serialized_end=76
-  _globals['_EXECRESPONSE']._serialized_start=78
-  _globals['_EXECRESPONSE']._serialized_end=142
-  _globals['_WRITEREQUEST']._serialized_start=144
-  _globals['_WRITEREQUEST']._serialized_end=203
-  _globals['_WRITERESPONSE']._serialized_start=205
-  _globals['_WRITERESPONSE']._serialized_end=237
-  _globals['_READREQUEST']._serialized_start=239
-  _globals['_READREQUEST']._serialized_end=297
-  _globals['_READRESPONSE']._serialized_start=299
-  _globals['_READRESPONSE']._serialized_end=330
-  _globals['_EVALREQUEST']._serialized_start=332
-  _globals['_EVALREQUEST']._serialized_end=419
-  _globals['_EVALRESPONSE']._serialized_start=421
-  _globals['_EVALRESPONSE']._serialized_end=510
-  _globals['_INITIALIZEREQUEST']._serialized_start=512
-  _globals['_INITIALIZEREQUEST']._serialized_end=587
-  _globals['_INITIALIZERESPONSE']._serialized_start=589
-  _globals['_INITIALIZERESPONSE']._serialized_end=663
-  _globals['_HEALTHCHECKREQUEST']._serialized_start=665
-  _globals['_HEALTHCHECKREQUEST']._serialized_end=685
-  _globals['_HEALTHCHECKRESPONSE']._serialized_start=687
-  _globals['_HEALTHCHECKRESPONSE']._serialized_end=742
-  _globals['_CONTAINERSERVICE']._serialized_start=745
-  _globals['_CONTAINERSERVICE']._serialized_end=1168
+  _globals['DESCRIPTOR']._loaded_options = None
+  _globals['DESCRIPTOR']._serialized_options = b'Z%swebench/harness/aliyun_fc_eval/proto'
+  _globals['_HEALTHCHECKREQUEST']._serialized_start=29
+  _globals['_HEALTHCHECKREQUEST']._serialized_end=49
+  _globals['_HEALTHCHECKRESPONSE']._serialized_start=51
+  _globals['_HEALTHCHECKRESPONSE']._serialized_end=106
+  _globals['_SESSIONREQUEST']._serialized_start=108
+  _globals['_SESSIONREQUEST']._serialized_end=225
+  _globals['_SESSIONRESPONSE']._serialized_start=227
+  _globals['_SESSIONRESPONSE']._serialized_end=343
+  _globals['_CONTAINERSERVICE']._serialized_start=346
+  _globals['_CONTAINERSERVICE']._serialized_end=517
 # @@protoc_insertion_point(module_scope)

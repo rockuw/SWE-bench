@@ -1,82 +1,15 @@
 syntax = "proto3";
 
+option go_package = "swebench/harness/aliyun_fc_eval/proto";
+
 package swebench;
 
 service ContainerService {
-    // Execute command and stream output
-    rpc ExecCommand(ExecRequest) returns (stream ExecResponse);
-
-    // Write file to container
-    rpc WriteFile(WriteRequest) returns (WriteResponse);
-
-    // Read file from container
-    rpc ReadFile(ReadRequest) returns (ReadResponse);
-
-    // Run full evaluation
-    rpc RunEvaluation(EvalRequest) returns (EvalResponse);
-
-    // Initialize testbed (clone repo, setup environment)
-    rpc InitializeTestbed(InitializeRequest) returns (InitializeResponse);
-
     // Health check
     rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
-}
 
-message ExecRequest {
-    string command = 1;
-    string workdir = 2;
-}
-
-message ExecResponse {
-    bytes output = 1;
-    int32 return_code = 2;
-    bool eof = 3;
-}
-
-message WriteRequest {
-    string path = 1;
-    bytes content = 2;
-    string mode = 3;  // "text" or "binary"
-}
-
-message WriteResponse {
-    bool success = 1;
-}
-
-message ReadRequest {
-    string path = 1;
-    int64 offset = 2;
-    int64 limit = 3;
-}
-
-message ReadResponse {
-    bytes content = 1;
-}
-
-message EvalRequest {
-    string instance_id = 1;
-    string patch = 2;
-    string eval_script = 3;
-    int32 timeout = 4;
-}
-
-message EvalResponse {
-    string test_output = 1;
-    int32 return_code = 2;
-    string git_diff = 3;
-    string error = 4;
-}
-
-message InitializeRequest {
-    string repo = 1;
-    string base_commit = 2;
-    string instance_id = 3;
-}
-
-message InitializeResponse {
-    bool success = 1;
-    string testbed_path = 2;
-    string error = 3;
+    // Bi-directional streaming for persistent session
+    rpc ContainerSession(stream SessionRequest) returns (stream SessionResponse);
 }
 
 message HealthCheckRequest {}
@@ -84,4 +17,22 @@ message HealthCheckRequest {}
 message HealthCheckResponse {
     bool healthy = 1;
     string message = 2;
+}
+
+message SessionRequest {
+    string request_type = 1;  // "exec", "write_file", "read_file"
+    string command = 2;
+    string workdir = 3;
+    string path = 4;
+    bytes content = 5;
+    string mode = 6;
+}
+
+message SessionResponse {
+    bool success = 1;
+    string error = 2;
+    bytes output = 3;
+    int32 return_code = 4;
+    bool eof = 5;
+    bytes content = 6;
 }

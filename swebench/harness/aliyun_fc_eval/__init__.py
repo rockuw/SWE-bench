@@ -22,12 +22,15 @@ Usage:
 # Import generated gRPC code
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from proto import container_pb2
-from proto import container_pb2_grpc
+proto_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "proto")
+sys.path.insert(0, proto_dir)
 
-from aliyun_fc_runtime import AliyunFCRuntime
-from run_evaluation_aliyun import (
+# Import container_pb2 first, then container_pb2_grpc
+import container_pb2
+import container_pb2_grpc
+
+from .aliyun_fc_runtime import AliyunFCRuntime
+from .run_evaluation_aliyun import (
     run_instance_aliyun,
     run_instances_aliyun,
     get_fc_endpoint,

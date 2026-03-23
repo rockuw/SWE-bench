@@ -486,6 +486,8 @@ def main(
     namespace: str | None,
     rewrite_reports: bool,
     modal: bool,
+    aliyun_fc: bool,
+    fc_endpoint: str | None,
     instance_image_tag: str = "latest",
     env_image_tag: str = "latest",
     report_dir: str = ".",
@@ -527,6 +529,17 @@ def main(
         else:
             validate_modal_credentials()
             run_instances_modal(predictions, dataset, full_dataset, run_id, timeout)
+        return
+
+    if aliyun_fc:
+        # run instances on Aliyun FC
+        if not dataset:
+            print("No instances to run.")
+        else:
+            if fc_endpoint is None:
+                raise ValueError("--fc-endpoint is required when --aliyun-fc is set")
+            from swebench.harness.aliyun_fc_eval import run_instances_aliyun
+            run_instances_aliyun(predictions, dataset, full_dataset, run_id, fc_endpoint, timeout)
         return
 
     # run instances locally
@@ -672,6 +685,10 @@ if __name__ == "__main__":
 
     # Modal execution args
     parser.add_argument("--modal", type=str2bool, default=False, help="Run on Modal")
+
+    # Aliyun FC execution args
+    parser.add_argument("--aliyun-fc", type=str2bool, default=False, help="Run on Aliyun FC")
+    parser.add_argument("--fc-endpoint", type=str, default=None, help="FC gRPC endpoint (e.g., xxx.cn-shanghai.fcapp.run:8089)")
 
     args = parser.parse_args()
     main(**vars(args))

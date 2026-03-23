@@ -22,7 +22,7 @@ from swebench.harness.utils import EvaluationError
 
 
 # gRPC default port for FC custom container
-DEFAULT_FC_PORT = 9000
+DEFAULT_FC_PORT = 8089
 
 
 @dataclass
@@ -98,86 +98,88 @@ def run_instance_aliyun(
     log_file = log_dir / "run_instance.log"
     logger = setup_logger(instance_id, log_file, add_stdout=True)
 
-    patch_diff = pred.get("patch", "")
+    from swebench.harness.constants import KEY_PREDICTION
+    patch_diff = pred.get(KEY_PREDICTION, "")
 
     try:
         # Connect to FC container via gRPC
         logger.info(f"Connecting to FC endpoint: {fc_endpoint}")
         runtime = AliyunFCRuntime(test_spec, fc_endpoint, timeout or 1800)
 
-        # Check health
-        if not runtime.health_check():
-            raise Exception("Container health check failed")
+        # Connect and check health
+        with runtime:
+            if not runtime.health_check():
+                raise Exception("Container health check failed")
 
-        # Initialize testbed
-        logger.info(f"Initializing testbed for {instance_id}")
-        logger.info(f"Repo: {test_spec.repo}, Commit: {test_spec.base_commit}")
+            # Note: Repo is already in the image at /testbed
+            testbed_path = "/testbed"
+            logger.info(f"Using testbed at: {testbed_path}")
 
-        testbed_path = runtime.initialize_testbed(
-            test_spec.repo,
-            test_spec.base_commit,
-        )
-        logger.info(f"Testbed initialized at: {testbed_path}")
+            # Reset git state to ensure clean state
+            runtime.exec("git checkout -f .", workdir=testbed_path)
+            runtime.exec("git clean -fd", workdir=testbed_path)
 
-        # Write patch file
-        patch_file = "/tmp/patch.diff"
-        runtime.write_file(patch_file, patch_diff)
+            # Write patch file
+            patch_file = "/tmp/patch.diff"
+            runtime.write_file(patch_file, patch_diff)
 
-        # Apply patch
-        apply_output, returncode = runtime.exec(
-            f"git apply {patch_file}",
-            workdir=testbed_path,
-        )
-
-        if returncode != 0:
-            logger.info(f"Failed to apply patch with git apply, trying patch command...")
+            # Apply patch
             apply_output, returncode = runtime.exec(
-                f"patch --batch --fuzz=5 -p1 -i {patch_file}",
+                f"git apply {patch_file}",
                 workdir=testbed_path,
             )
 
             if returncode != 0:
-                logger.info(f"{APPLY_PATCH_FAIL}:\n{apply_output}")
-                raise EvaluationError(
-                    instance_id,
-                    f"{APPLY_PATCH_FAIL}:\n{apply_output}",
-                    logger,
+                logger.info(f"Failed to apply patch with git apply, trying patch command...")
+                apply_output, returncode = runtime.exec(
+                    f"patch --batch --fuzz=5 -p1 -i {patch_file}",
+                    workdir=testbed_path,
                 )
+
+                if returncode != 0:
+                    logger.info(f"{APPLY_PATCH_FAIL}:\n{apply_output}")
+                    raise EvaluationError(
+                        instance_id,
+                        f"{APPLY_PATCH_FAIL}:\n{apply_output}",
+                        logger,
+                    )
+                else:
+                    logger.info(f"{APPLY_PATCH_PASS}:\n{apply_output}")
             else:
                 logger.info(f"{APPLY_PATCH_PASS}:\n{apply_output}")
-        else:
-            logger.info(f"{APPLY_PATCH_PASS}:\n{apply_output}")
 
-        # Get git diff before running eval script
-        git_diff_before, _ = runtime.exec("git diff", workdir=testbed_path)
-        logger.info(f"Git diff before:\n{git_diff_before}")
+            # Get git diff before running eval script
+            git_diff_before, _ = runtime.exec("git diff", workdir=testbed_path)
+            logger.info(f"Git diff before:\n{git_diff_before}")
 
-        # Write eval script
-        eval_file = "/tmp/eval.sh"
-        eval_script = test_spec.eval_script
-        runtime.write_file(eval_file, eval_script)
+            # Write eval script
+            eval_file = "/tmp/eval.sh"
+            eval_script = test_spec.eval_script
+            runtime.write_file(eval_file, eval_script)
 
-        # Run evaluation
-        start_time = time.time()
-        test_output, returncode = runtime.exec(
-            f"bash {eval_file}",
-            workdir=testbed_path,
-        )
-        total_runtime = time.time() - start_time
+            # Run evaluation
+            start_time = time.time()
+            test_output, returncode = runtime.exec(
+                f"bash {eval_file}",
+                workdir=testbed_path,
+            )
+            total_runtime = time.time() - start_time
 
-        # Write test output to log
-        test_output_path = log_dir / "test_output.txt"
-        logger.info(f"Test runtime: {total_runtime:_.2f} seconds")
-        with open(test_output_path, "w") as f:
-            f.write(test_output)
-            logger.info(f"Test output for {instance_id} written to {test_output_path}")
+            # Write test output to log
+            test_output_path = log_dir / "test_output.txt"
+            logger.info(f"Test runtime: {total_runtime:_.2f} seconds")
+            with open(test_output_path, "w") as f:
+                f.write(test_output)
+                logger.info(f"Test output for {instance_id} written to {test_output_path}")
 
-        # Get git diff after running eval script
-        git_diff_after, _ = runtime.exec("git diff", workdir=testbed_path)
-        logger.info(f"Git diff after:\n{git_diff_after}")
+            # Get git diff after running eval script
+            git_diff_after, _ = runtime.exec("git diff", workdir=testbed_path)
+            logger.info(f"Git diff after:\n{git_diff_after}")
 
-        if git_diff_after != git_diff_before:
-            logger.info("Git diff changed after running eval script")
+            if git_diff_after != git_diff_before:
+                logger.info("Git diff changed after running eval script")
+
+        # Get report from test output
 
         # Get report from test output
         logger.info(f"Grading answer for {instance_id}...")
@@ -191,9 +193,6 @@ def run_instance_aliyun(
             f"report: {report}\n"
             f"Result for {instance_id}: resolved: {report[instance_id]['resolved']}"
         )
-
-        # Close the runtime
-        runtime.close()
 
         return TestOutput(
             instance_id=instance_id,

@@ -3,10 +3,7 @@
 import grpc
 import warnings
 
-try:
-    import container_pb2 as container__pb2
-except ImportError:
-    from . import container_pb2 as container__pb2
+import container_pb2 as container__pb2
 
 GRPC_GENERATED_VERSION = '1.78.0'
 GRPC_VERSION = grpc.__version__
@@ -37,75 +34,20 @@ class ContainerServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.ExecCommand = channel.unary_stream(
-                '/swebench.ContainerService/ExecCommand',
-                request_serializer=container__pb2.ExecRequest.SerializeToString,
-                response_deserializer=container__pb2.ExecResponse.FromString,
-                _registered_method=True)
-        self.WriteFile = channel.unary_unary(
-                '/swebench.ContainerService/WriteFile',
-                request_serializer=container__pb2.WriteRequest.SerializeToString,
-                response_deserializer=container__pb2.WriteResponse.FromString,
-                _registered_method=True)
-        self.ReadFile = channel.unary_unary(
-                '/swebench.ContainerService/ReadFile',
-                request_serializer=container__pb2.ReadRequest.SerializeToString,
-                response_deserializer=container__pb2.ReadResponse.FromString,
-                _registered_method=True)
-        self.RunEvaluation = channel.unary_unary(
-                '/swebench.ContainerService/RunEvaluation',
-                request_serializer=container__pb2.EvalRequest.SerializeToString,
-                response_deserializer=container__pb2.EvalResponse.FromString,
-                _registered_method=True)
-        self.InitializeTestbed = channel.unary_unary(
-                '/swebench.ContainerService/InitializeTestbed',
-                request_serializer=container__pb2.InitializeRequest.SerializeToString,
-                response_deserializer=container__pb2.InitializeResponse.FromString,
-                _registered_method=True)
         self.HealthCheck = channel.unary_unary(
                 '/swebench.ContainerService/HealthCheck',
                 request_serializer=container__pb2.HealthCheckRequest.SerializeToString,
                 response_deserializer=container__pb2.HealthCheckResponse.FromString,
                 _registered_method=True)
+        self.ContainerSession = channel.stream_stream(
+                '/swebench.ContainerService/ContainerSession',
+                request_serializer=container__pb2.SessionRequest.SerializeToString,
+                response_deserializer=container__pb2.SessionResponse.FromString,
+                _registered_method=True)
 
 
 class ContainerServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
-
-    def ExecCommand(self, request, context):
-        """Execute command and stream output
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def WriteFile(self, request, context):
-        """Write file to container
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def ReadFile(self, request, context):
-        """Read file from container
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def RunEvaluation(self, request, context):
-        """Run full evaluation
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def InitializeTestbed(self, request, context):
-        """Initialize testbed (clone repo, setup environment)
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
 
     def HealthCheck(self, request, context):
         """Health check
@@ -114,38 +56,25 @@ class ContainerServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ContainerSession(self, request_iterator, context):
+        """Bi-directional streaming for persistent session
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_ContainerServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'ExecCommand': grpc.unary_stream_rpc_method_handler(
-                    servicer.ExecCommand,
-                    request_deserializer=container__pb2.ExecRequest.FromString,
-                    response_serializer=container__pb2.ExecResponse.SerializeToString,
-            ),
-            'WriteFile': grpc.unary_unary_rpc_method_handler(
-                    servicer.WriteFile,
-                    request_deserializer=container__pb2.WriteRequest.FromString,
-                    response_serializer=container__pb2.WriteResponse.SerializeToString,
-            ),
-            'ReadFile': grpc.unary_unary_rpc_method_handler(
-                    servicer.ReadFile,
-                    request_deserializer=container__pb2.ReadRequest.FromString,
-                    response_serializer=container__pb2.ReadResponse.SerializeToString,
-            ),
-            'RunEvaluation': grpc.unary_unary_rpc_method_handler(
-                    servicer.RunEvaluation,
-                    request_deserializer=container__pb2.EvalRequest.FromString,
-                    response_serializer=container__pb2.EvalResponse.SerializeToString,
-            ),
-            'InitializeTestbed': grpc.unary_unary_rpc_method_handler(
-                    servicer.InitializeTestbed,
-                    request_deserializer=container__pb2.InitializeRequest.FromString,
-                    response_serializer=container__pb2.InitializeResponse.SerializeToString,
-            ),
             'HealthCheck': grpc.unary_unary_rpc_method_handler(
                     servicer.HealthCheck,
                     request_deserializer=container__pb2.HealthCheckRequest.FromString,
                     response_serializer=container__pb2.HealthCheckResponse.SerializeToString,
+            ),
+            'ContainerSession': grpc.stream_stream_rpc_method_handler(
+                    servicer.ContainerSession,
+                    request_deserializer=container__pb2.SessionRequest.FromString,
+                    response_serializer=container__pb2.SessionResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -157,141 +86,6 @@ def add_ContainerServiceServicer_to_server(servicer, server):
  # This class is part of an EXPERIMENTAL API.
 class ContainerService(object):
     """Missing associated documentation comment in .proto file."""
-
-    @staticmethod
-    def ExecCommand(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_stream(
-            request,
-            target,
-            '/swebench.ContainerService/ExecCommand',
-            container__pb2.ExecRequest.SerializeToString,
-            container__pb2.ExecResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def WriteFile(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/swebench.ContainerService/WriteFile',
-            container__pb2.WriteRequest.SerializeToString,
-            container__pb2.WriteResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def ReadFile(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/swebench.ContainerService/ReadFile',
-            container__pb2.ReadRequest.SerializeToString,
-            container__pb2.ReadResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def RunEvaluation(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/swebench.ContainerService/RunEvaluation',
-            container__pb2.EvalRequest.SerializeToString,
-            container__pb2.EvalResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def InitializeTestbed(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/swebench.ContainerService/InitializeTestbed',
-            container__pb2.InitializeRequest.SerializeToString,
-            container__pb2.InitializeResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
 
     @staticmethod
     def HealthCheck(request,
@@ -310,6 +104,33 @@ class ContainerService(object):
             '/swebench.ContainerService/HealthCheck',
             container__pb2.HealthCheckRequest.SerializeToString,
             container__pb2.HealthCheckResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ContainerSession(request_iterator,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.stream_stream(
+            request_iterator,
+            target,
+            '/swebench.ContainerService/ContainerSession',
+            container__pb2.SessionRequest.SerializeToString,
+            container__pb2.SessionResponse.FromString,
             options,
             channel_credentials,
             insecure,

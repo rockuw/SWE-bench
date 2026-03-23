@@ -7,7 +7,7 @@ access: "default"
 
 vars:
   region: "cn-shanghai"
-  acr_image: "registry.cn-shanghai.aliyuncs.com/muwu/sweb.eval.x86_64.sympy_1776_sympy-20590:fc-go"
+  acr_image: "registry.cn-shanghai.aliyuncs.com/muwu/swebench-eval:fc-go"
 
 resources:
   swebench-eval:
@@ -19,8 +19,8 @@ resources:
       runtime: "custom-container"
       memorySize: 16384
       timeout: 1800
-      caPort: 9000
       customContainerConfig:
+        port: 8089
         image: ${vars.acr_image}
         command:
           - /fc_server
@@ -39,3 +39,4 @@ resources:
               - POST
             path: /*
             qualifier: LATEST
+

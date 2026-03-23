@@ -15,7 +15,7 @@ def main():
         "--fc-endpoint",
         type=str,
         required=True,
-        help="FC gRPC endpoint (e.g., swebench-eval.cn-hangzhou.fc.aliyuncs.com:9000)",
+        help="FC gRPC endpoint (e.g., swebench-eval.cn-hangzhou.fcapp.run:8089)",
     )
     parser.add_argument(
         "--instance-id",
@@ -55,48 +55,38 @@ def main():
     print(f"\nConnecting to FC container...")
     runtime = AliyunFCRuntime(test_spec, args.fc_endpoint, timeout=1800)
 
-    # Health check
-    print(f"Running health check...")
-    if not runtime.health_check():
-        print("Error: Container health check failed")
-        return 1
-    print("Container is healthy!")
+    with runtime:
+        # Health check
+        print(f"Running health check...")
+        if not runtime.health_check():
+            print("Error: Container health check failed")
+            return 1
+        print("Container is healthy!")
 
-    # Initialize testbed
-    print(f"\nInitializing testbed...")
-    try:
-        testbed_path = runtime.initialize_testbed(
-            test_spec.repo,
-            test_spec.base_commit,
-        )
-        print(f"Testbed initialized at: {testbed_path}")
-    except Exception as e:
-        print(f"Error initializing testbed: {e}")
-        return 1
+        # Note: Repo is already in the image at /testbed
+        testbed_path = "/testbed"
+        print(f"Using testbed at: {testbed_path}")
 
-    # Apply patch
-    print(f"\nApplying patch...")
-    patch_file = "/tmp/patch.diff"
-    runtime.write_file(patch_file, gold_patch)
-    output, rc = runtime.exec(f"git apply {patch_file}", workdir=testbed_path)
-    print(f"Apply result: rc={rc}")
-    if rc != 0:
-        print(f"Output: {output}")
+        # Apply patch
+        print(f"\nApplying patch...")
+        patch_file = "/tmp/patch.diff"
+        runtime.write_file(patch_file, gold_patch)
+        output, rc = runtime.exec(f"git apply {patch_file}", workdir=testbed_path)
+        print(f"Apply result: rc={rc}")
+        if rc != 0:
+            print(f"Output: {output}")
 
-    # Run eval script
-    print(f"\nRunning eval script...")
-    eval_file = "/tmp/eval.sh"
-    runtime.write_file(eval_file, test_spec.eval_script)
-    output, rc = runtime.exec(f"bash {eval_file}", workdir=testbed_path)
-    print(f"Eval result: rc={rc}")
-    print(f"Output length: {len(output)} bytes")
+        # Run eval script
+        print(f"\nRunning eval script...")
+        eval_file = "/tmp/eval.sh"
+        runtime.write_file(eval_file, test_spec.eval_script)
+        output, rc = runtime.exec(f"bash {eval_file}", workdir=testbed_path)
+        print(f"Eval result: rc={rc}")
+        print(f"Output length: {len(output)} bytes")
 
-    # Show first 500 chars of output
-    print(f"\nOutput preview:")
-    print(output[:500])
-
-    # Close
-    runtime.close()
+        # Show first 500 chars of output
+        print(f"\nOutput preview:")
+        print(output[:500])
 
     print("\n✓ Test completed successfully!")
     return 0

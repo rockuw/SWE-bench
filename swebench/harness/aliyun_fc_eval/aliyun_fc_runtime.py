@@ -1,21 +1,26 @@
 """
-Aliyun FC Runtime - provides Docker SDK-like interface using HTTP.
+Aliyun FC Runtime - provides Docker SDK-like interface using gRPC.
 """
 
+import grpc
+import ssl
 import base64
-import json
-import subprocess
-import time
+import logging
 from typing import Optional
 
-import requests
-from requests.exceptions import RequestException
+# Add proto to path
+import sys
+sys.path.insert(0, '/home/rockuw/freeman/SWE-bench/swebench/harness/aliyun_fc_eval/proto')
+import container_pb2
+import container_pb2_grpc
+
+logger = logging.getLogger(__name__)
 
 
 class AliyunFCRuntime:
     """
-    Runtime that provides Docker SDK-like interface using HTTP.
-    Uses 's invoke' to communicate with the FC function.
+    Runtime that provides Docker SDK-like interface using gRPC.
+    Uses bi-directional streaming for persistent connection.
     """
 
     def __init__(
@@ -29,124 +34,46 @@ class AliyunFCRuntime:
 
         Args:
             test_spec: TestSpec instance
-            fc_endpoint: Not used directly, we use s invoke
+            fc_endpoint: FC endpoint (e.g., swebench-eval-xxx.cn-shanghai.fcapp.run:8089)
             timeout: Default timeout for operations in seconds
         """
         self.test_spec = test_spec
         self.fc_endpoint = fc_endpoint
         self.timeout = timeout
+        self.channel = None
+        self.stub = None
+        self.session = None
 
-        # Track initialization state
-        self.initialized = False
-        self.testbed_path = None
+    def _create_channel(self):
+        """Create gRPC channel with TLS."""
+        # Use default SSL credentials - this should work with Aliyun's valid cert
+        credentials = grpc.ssl_channel_credentials()
 
-    def _invoke_fc(self, payload: dict, path: str = "/") -> dict:
-        """
-        Invoke the FC function using 's invoke'.
+        self.channel = grpc.secure_channel(
+            self.fc_endpoint,
+            credentials,
+            options=[
+                ('grpc.http2.enable', True),
+            ]
+        )
+        self.stub = container_pb2_grpc.ContainerServiceStub(self.channel)
 
-        Args:
-            payload: Request payload as dict
-            path: Path to invoke (default: /)
-
-        Returns:
-            Response as dict
-        """
-        # Convert payload to JSON string and base64 encode
-        payload_json = json.dumps(payload)
-        payload_b64 = base64.b64encode(payload_json.encode()).decode()
-
-        # Path to the s.yaml file
-        s_yaml_path = "/home/rockuw/freeman/SWE-bench/swebench/harness/aliyun_fc_eval"
-
-        # Use s invoke to call the function
-        cmd = [
-            "s", "invoke",
-            "swebench-eval",
-            "--region", "cn-shanghai",
-            "--event", payload_b64,
-        ]
-
-        try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=self.timeout + 60,
-                cwd=s_yaml_path,
-            )
-
-            # Parse the output
-            if result.returncode != 0:
-                raise Exception(f"s invoke failed: {result.stderr}")
-
-            # The output contains the response - extract it
-            # s invoke output contains log lines, find the JSON response
-            output = result.stdout.strip()
-
-            # Find JSON in output (starts with { and ends with })
-            json_start = output.find('{')
-            json_end = output.rfind('}') + 1
-
-            if json_start >= 0 and json_end > json_start:
-                json_str = output[json_start:json_end]
-                try:
-                    return json.loads(json_str)
-                except json.JSONDecodeError:
-                    pass
-
-            # Return as plain text response
-            return {"output": output, "raw": True}
-
-        except subprocess.TimeoutExpired:
-            raise Exception("FC invocation timed out")
-        except Exception as e:
-            raise Exception(f"FC invocation failed: {e}")
+    def connect(self):
+        """Connect to the FC container."""
+        logger.info(f"Connecting to FC endpoint: {self.fc_endpoint}")
+        self._create_channel()
+        logger.info("FC connection established")
 
     def health_check(self) -> bool:
         """Check if the container is healthy."""
-        # Retry a few times to handle cold starts
-        max_retries = 5
-        for attempt in range(max_retries):
-            try:
-                response = self._invoke_fc({}, path="/health_check")
-                if response.get("status") == "ok":
-                    return True
-                print(f"Health check attempt {attempt + 1} returned: {response}")
-            except Exception as e:
-                print(f"Health check attempt {attempt + 1} failed: {e}")
-                if attempt < max_retries - 1:
-                    import time
-                    time.sleep(2)  # Wait before retry
-        return False
-
-    def initialize_testbed(self, repo: str, base_commit: str) -> str:
-        """
-        Initialize the testbed by cloning the repo and checking out the commit.
-
-        Args:
-            repo: Repository name (e.g., 'sympy/sympy')
-            base_commit: Git commit SHA
-
-        Returns:
-            Path to the testbed
-
-        Raises:
-            Exception: If initialization fails
-        """
-        request = {
-            "repo": repo,
-            "base_commit": base_commit,
-            "instance_id": self.test_spec.instance_id,
-        }
-
-        response = self._invoke_fc(request, path="/initialize")
-
-        if not response.get("success"):
-            raise Exception(f"Failed to initialize testbed: {response.get('error')}")
-
-        self.initialized = True
-        self.testbed_path = response.get("testbed_path")
-        return self.testbed_path
+        logger.info("Running health check...")
+        try:
+            response = self.stub.HealthCheck(container_pb2.HealthCheckRequest())
+            logger.info(f"Health check response: healthy={response.healthy}, message={response.message}")
+            return response.healthy
+        except grpc.RpcError as e:
+            logger.error(f"Health check failed: {e.code()}: {e.details()}")
+            return False
 
     def write_file(self, path: str, content: str, is_binary: bool = False) -> None:
         """
@@ -158,21 +85,29 @@ class AliyunFCRuntime:
             is_binary: Whether content is binary
         """
         mode = "binary" if is_binary else "text"
+        logger.info(f"Writing file: {path} (mode={mode}, size={len(content)} bytes)")
 
         if is_binary:
-            content_encoded = base64.b64encode(content).decode('utf-8')
+            content_bytes = content
         else:
-            content_encoded = content
+            content_bytes = content.encode('utf-8')
 
-        request = {
-            "path": path,
-            "content": content_encoded,
-            "mode": mode,
-        }
+        request = container_pb2.SessionRequest(
+            request_type="write_file",
+            path=path,
+            content=content_bytes,
+            mode=mode,
+        )
 
-        response = self._invoke_fc(request, path="/write_file")
-        if not response.get("success"):
-            raise Exception(f"Failed to write file: {response.get('error')}")
+        # Send request and get response
+        # For write_file, we use a simple request-response pattern
+        # The server should handle it and return response
+        # We'll need to use a stream for this
+        for response in self.stub.ContainerSession(iter([request])):
+            if response.success:
+                return
+            else:
+                raise Exception(f"Failed to write file: {response.error}")
 
     def exec(
         self,
@@ -189,17 +124,30 @@ class AliyunFCRuntime:
         Returns:
             Tuple of (output, return_code)
         """
-        request = {
-            "command": command,
-            "workdir": workdir or "/testbed",
-        }
+        if workdir is None:
+            workdir = "/testbed"
 
-        response = self._invoke_fc(request, path="/exec")
+        logger.info(f"Executing command: {command} (workdir={workdir})")
 
-        output = response.get("output", "")
-        return_code = response.get("return_code", 0)
+        request = container_pb2.SessionRequest(
+            request_type="exec",
+            command=command,
+            workdir=workdir,
+        )
 
-        return output, return_code
+        output = []
+        return_code = 0
+
+        for response in self.stub.ContainerSession(iter([request])):
+            if response.output:
+                output.append(response.output.decode('utf-8'))
+            if response.eof:
+                return_code = response.return_code
+                break
+
+        logger.info(f"Command completed: return_code={return_code}, output_size={len(''.join(output))} bytes")
+
+        return "".join(output), return_code
 
     def read_file(self, path: str, offset: int = 0, limit: int = 0) -> bytes:
         """
@@ -213,50 +161,28 @@ class AliyunFCRuntime:
         Returns:
             File content
         """
-        # This method may not be needed for current use cases
-        raise NotImplementedError("read_file not implemented for HTTP runtime")
+        logger.info(f"Reading file: {path}")
+        request = container_pb2.SessionRequest(
+            request_type="read_file",
+            path=path,
+        )
 
-    def run_evaluation(
-        self,
-        patch: str,
-        eval_script: str,
-        timeout: Optional[int] = None,
-    ) -> dict:
-        """
-        Run the full evaluation in one call.
-
-        Args:
-            patch: The patch to apply
-            eval_script: Evaluation script to run
-            timeout: Timeout in seconds
-
-        Returns:
-            Dict with test_output, return_code, git_diff
-        """
-        timeout = timeout or self.timeout
-
-        request = {
-            "instance_id": self.test_spec.instance_id,
-            "patch": patch,
-            "eval_script": eval_script,
-            "timeout": timeout,
-        }
-
-        response = self._invoke_fc(request, path="/run_evaluation")
-
-        return {
-            "test_output": response.get("test_output", ""),
-            "return_code": response.get("return_code", 0),
-            "git_diff": response.get("git_diff", ""),
-            "error": response.get("error"),
-        }
+        for response in self.stub.ContainerSession(iter([request])):
+            if response.success:
+                logger.info(f"Read file success: {path} ({len(response.content)} bytes)")
+                return response.content
+            else:
+                raise Exception(f"Failed to read file: {response.error}")
 
     def __enter__(self):
+        self.connect()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
     def close(self):
-        """Close the runtime (no-op for HTTP)."""
-        pass
+        """Close gRPC connection."""
+        if self.channel:
+            logger.info("Closing gRPC connection")
+            self.channel.close()
