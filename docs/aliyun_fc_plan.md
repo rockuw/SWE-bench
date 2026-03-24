@@ -192,6 +192,10 @@ python -m grpc_tools.protoc -I./proto \
 - [x] Build Docker image locally and test
 - [x] Push image to ACR: `registry.cn-shanghai.aliyuncs.com/muwu/swebench-eval:fc-go`
 
+Notes:
+
+1. AI didn't know ACR endpoint
+
 ### 3. Deploy FC Function
 
 - [x] Write `s.yaml` for FC 3.0 custom-container runtime
@@ -199,6 +203,14 @@ python -m grpc_tools.protoc -I./proto \
 - [x] Configure `customContainerConfig.port: 8089` for gRPC
 - [x] Deploy: `s deploy`
 - [x] Test gRPC server with `grpcurl` or Go client
+
+Notes:
+
+1. AI s.yaml has caPort rather than customContainerConfig.port
+2. AI grpc client dial fails with insecure, without the credentials.NewTLS(&tls.Config{
+			InsecureSkipVerify: true,
+		})
+3. AI didn't know to run s deploy with --skip-push
 
 **FC Endpoint**: `swebench-eval-xxx.cn-shanghai.fcapp.run:8089`
 
@@ -217,13 +229,17 @@ python -m grpc_tools.protoc -I./proto \
 - [x] Add `--fc-endpoint` flag
 - [x] Implement `run_instance_aliyun()` to use `AliyunFCRuntime`
 - [x] Implement gold test workflow: write patch → apply patch → run eval → get results
-- [ ] Test with single instance: `sympy__sympy-20590`
+- [x] Test with single instance: `sympy__sympy-20590`
 
 ### 6. Verify Gold Test
 
 - [x] Run gold test on Aliyun FC
 - [x] Compare results with local Docker gold test
 - [x] Debug any issues
+
+Notes:
+
+1. AI auto debuged a bug, user only points out the local and remote result do not match
 
 ## Detailed Evaluation Steps (Gold Test Example)
 
